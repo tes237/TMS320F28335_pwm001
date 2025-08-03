@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Example_2833xEPwmUpAQ",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "Example_2833xEPwmUpAQ",
+                "resourceId": "/Example_2833xEPwmUpAQ"
+            }
+        }
+    ]
+}
