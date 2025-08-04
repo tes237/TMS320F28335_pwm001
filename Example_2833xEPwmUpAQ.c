@@ -73,6 +73,7 @@ typedef struct
     volatile struct EPWM_REGS *EPwmRegHandle;
     Uint16 EPwm_CMPA_Direction;
     Uint16 EPwm_CMPB_Direction;
+    Uint16 EPwm_which_port;
     Uint16 EPwmTimerIntCount;
     Uint16 EPwmMaxCMPA;
     Uint16 EPwmMinCMPA;
@@ -104,6 +105,7 @@ EPWM_INFO epwm4_info;
 //
 // Defines that configure the period for each timer
 //
+/*
 #define EPWM1_TIMER_TBPRD  2000  // Period register
 #define EPWM1_MAX_CMPA     1950
 #define EPWM1_MIN_CMPA       50
@@ -129,8 +131,8 @@ EPWM_INFO epwm4_info;
 #define EPWM4_MIN_CMPB     1050
 
 #define EPWM1_STEP_SIZE     300
+*/
 
-/*
 #define EPWM1_TIMER_TBPRD  2000  // Period register
 #define EPWM1_MAX_CMPA     1800
 #define EPWM1_MIN_CMPA     300
@@ -165,13 +167,15 @@ EPWM_INFO epwm4_info;
 #define EPWM4_MIN_CMPB     300
 
 #define EPWM4_STEP_SIZE     300
-*/
 
 //
 // Defines that keep track of which way the compare value is moving
 //
 #define EPWM_CMP_UP   1
 #define EPWM_CMP_DOWN 0
+
+#define EPWM_PORT_A 0
+#define EPWM_PORT_B 1
 
 //
 // Main
@@ -197,7 +201,7 @@ void main(void)
     // These functions are in the DSP2833x_EPwm.c file
     //
     InitEPwm1Gpio();
-    InitEPwm2Gpio();
+    //InitEPwm2Gpio();
     //InitEPwm3Gpio();
     //InitEPwm4Gpio();
 
@@ -237,7 +241,7 @@ void main(void)
     //
     EALLOW;  // This is needed to write to EALLOW protected registers
     PieVectTable.EPWM1_INT = &epwm1_isr;
-    PieVectTable.EPWM2_INT = &epwm2_isr;
+    //PieVectTable.EPWM2_INT = &epwm2_isr;
     //PieVectTable.EPWM3_INT = &epwm3_isr;
     //PieVectTable.EPWM4_INT = &epwm4_isr;
     EDIS;    // This is needed to disable write to EALLOW protected registers
@@ -256,7 +260,7 @@ void main(void)
     EDIS;
 
     InitEPwm1Example();
-    InitEPwm2Example();
+    //InitEPwm2Example();
     //InitEPwm3Example();
     //InitEPwm4Example();
 
@@ -278,7 +282,7 @@ void main(void)
     // Enable EPWM INTn in the PIE: Group 3 interrupt 1-3
     //
     PieCtrlRegs.PIEIER3.bit.INTx1 = 1;
-    PieCtrlRegs.PIEIER3.bit.INTx2 = 1;
+    //PieCtrlRegs.PIEIER3.bit.INTx2 = 1;
     //PieCtrlRegs.PIEIER3.bit.INTx3 = 1;
     //PieCtrlRegs.PIEIER3.bit.INTx4 = 1;
 
@@ -364,6 +368,8 @@ InitEPwm1Example()
     //
     epwm1_info.EPwm_CMPA_Direction = EPWM_CMP_UP;
     epwm1_info.EPwm_CMPB_Direction = EPWM_CMP_UP;
+
+    epwm1_info.EPwm_which_port = EPWM_PORT_A;    //포트A부터 시작함
     
     epwm1_info.EPwmTimerIntCount = 0;      // Zero the interrupt counter
     epwm1_info.EPwmRegHandle = &EPwm1Regs; //Set the pointer to the ePWM module
@@ -681,86 +687,14 @@ void
 update_compare(EPWM_INFO *epwm_info)
 {
     //EPWM1_A 포트를 처리할 때 아래 코드가 쓰임
-    if(epwm_info->EPwm_CMPA_Direction == EPWM_CMP_UP)
+    if(epwm_info->EPwm_which_port == EPWM_PORT_A)
     {
-        //
-        // If we were increasing CMPA, check to see if we reached the max value
-        // If not, increase CMPA else, change directions and decrease CMPA
-        //
-        if(epwm_info->EPwmRegHandle->CMPA.half.CMPA < epwm_info->EPwmMaxCMPA)
-        {
-            epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA + EPWM1_STEP_SIZE;
-        }
-        else
-        {
-            epwm_info->EPwm_CMPA_Direction = EPWM_CMP_DOWN;
-            epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA - EPWM1_STEP_SIZE;
-        }
-    }
-    else
-    {
-        //
-        // If we were decreasing CMPA, check to see if we reached the min value
-        // If not, decrease CMPA else, change directions and increase CMPA
-        //
-        if(epwm_info->EPwmRegHandle->CMPA.half.CMPA == epwm_info->EPwmMinCMPA)
-        {
-            epwm_info->EPwm_CMPA_Direction = EPWM_CMP_UP;
-            epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA + EPWM1_STEP_SIZE;
-        }
-        else
-        {
-            epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA - EPWM1_STEP_SIZE;
-        }
-    }
-
-
-    if(epwm_info->EPwm_CMPB_Direction == EPWM_CMP_UP)
-    {
-        // If we were increasing CMPB, check to see if we reached the max value
-        // If not, increase CMPB else, change directions and decrease CMPB
-        //
-        if(epwm_info->EPwmRegHandle->CMPB < epwm_info->EPwmMaxCMPB)
-        {
-            epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB + EPWM1_STEP_SIZE;
-        }
-        else
-        {
-            epwm_info->EPwm_CMPB_Direction = EPWM_CMP_DOWN;
-            epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB - EPWM1_STEP_SIZE;
-        }
-    }
-    else
-    {
-        //
-        // If we were decreasing CMPB, check to see if we reached the min value
-        // If not, decrease CMPB else, change directions and increase CMPB
-        //
-        if(epwm_info->EPwmRegHandle->CMPB == epwm_info->EPwmMinCMPB)
-        {
-            epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;
-            epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB + EPWM1_STEP_SIZE;
-        }
-        else    
-        {
-            epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB - EPWM1_STEP_SIZE;
-        }
-    }
-
-    /*
-    //
-    // Every 10'th interrupt, change the CMPA/CMPB values
-    //
-    if(epwm_info->EPwmTimerIntCount == 10)
-    {
-        epwm_info->EPwmTimerIntCount = 0;
-
-        //
-        // If we were increasing CMPA, check to see if we reached the max value
-        // If not, increase CMPA else, change directions and decrease CMPA
-        //
         if(epwm_info->EPwm_CMPA_Direction == EPWM_CMP_UP)
         {
+            //
+            // If we were increasing CMPA, check to see if we reached the max value
+            // If not, increase CMPA else, change directions and decrease CMPA
+            //
             if(epwm_info->EPwmRegHandle->CMPA.half.CMPA < epwm_info->EPwmMaxCMPA)
             {
                 epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA + EPWM1_STEP_SIZE;
@@ -771,17 +705,19 @@ update_compare(EPWM_INFO *epwm_info)
                 epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA - EPWM1_STEP_SIZE;
             }
         }
-
-        //
-        // If we were decreasing CMPA, check to see if we reached the min value
-        // If not, decrease CMPA else, change directions and increase CMPA
-        //
-        else
+        else if(epwm_info->EPwm_CMPA_Direction == EPWM_CMP_DOWN)
         {
+            //
+            // If we were decreasing CMPA, check to see if we reached the min value
+            // If not, decrease CMPA else, change directions and increase CMPA
+            //
             if(epwm_info->EPwmRegHandle->CMPA.half.CMPA == epwm_info->EPwmMinCMPA)
             {
+                //epwm_info->EPwm_CMPA_Direction = EPWM_CMP_UP;
+                //epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA + EPWM1_STEP_SIZE;
                 epwm_info->EPwm_CMPA_Direction = EPWM_CMP_UP;
-                epwm_info->EPwmRegHandle->CMPA.half.CMPA = epwm_info->EPwmRegHandle->CMPA.half.CMPA + EPWM1_STEP_SIZE;
+                epwm_info->EPwmRegHandle->CMPA.half.CMPA = 0;
+                epwm_info->EPwm_which_port = EPWM_PORT_B;
             }
             else
             {
@@ -789,45 +725,51 @@ update_compare(EPWM_INFO *epwm_info)
             }
         }
 
-        //
-        // If we were increasing CMPB, check to see if we reached the max value
-        // If not, increase CMPB else, change directions and decrease CMPB
-        //
+        epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;
+        epwm_info->EPwmRegHandle->CMPB = 0;
+    }
+    else if(epwm_info->EPwm_which_port == EPWM_PORT_B)
+    {
         if(epwm_info->EPwm_CMPB_Direction == EPWM_CMP_UP)
         {
+            // If we were increasing CMPB, check to see if we reached the max value
+            // If not, increase CMPB else, change directions and decrease CMPB
+            //
             if(epwm_info->EPwmRegHandle->CMPB < epwm_info->EPwmMaxCMPB)
             {
-                epwm_info->EPwmRegHandle->CMPB++;
+                epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB + EPWM1_STEP_SIZE;
             }
             else
             {
                 epwm_info->EPwm_CMPB_Direction = EPWM_CMP_DOWN;
-                epwm_info->EPwmRegHandle->CMPB--;
+                epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB - EPWM1_STEP_SIZE;
             }
         }
-    
-        //
-        // If we were decreasing CMPB, check to see if we reached the min value
-        // If not, decrease CMPB else, change directions and increase CMPB
-        //
-        else
+        else if(epwm_info->EPwm_CMPB_Direction == EPWM_CMP_DOWN)
         {
+            //
+            // If we were decreasing CMPB, check to see if we reached the min value
+            // If not, decrease CMPB else, change directions and increase CMPB
+            //
             if(epwm_info->EPwmRegHandle->CMPB == epwm_info->EPwmMinCMPB)
             {
-                epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;
-                epwm_info->EPwmRegHandle->CMPB++;
+                //epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;
+                //epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB + EPWM1_STEP_SIZE;
+
+                epwm_info->EPwm_CMPB_Direction = EPWM_CMP_UP;   //A포트 신호가 끝나면 다시 UP부터 시작하기 위해서 초기화
+                epwm_info->EPwmRegHandle->CMPB = 0;              //A포트 신호 중에는 신호가 0으로, 즉 신호없는 것으로 유지되도록 하기
+                epwm_info->EPwm_which_port = EPWM_PORT_A;       //B포트는 여기서 일단 끝나고 A포트로 넘어가기
             }
             else    
             {
-                epwm_info->EPwmRegHandle->CMPB--;
+                epwm_info->EPwmRegHandle->CMPB = epwm_info->EPwmRegHandle->CMPB - EPWM1_STEP_SIZE;
             }
         }
+
+        epwm_info->EPwm_CMPA_Direction = EPWM_CMP_UP;
+        epwm_info->EPwmRegHandle->CMPA.half.CMPA = 0;
+
     }
-    else
-    {
-        epwm_info->EPwmTimerIntCount++;
-    }
-    */
 
     return;
 }
